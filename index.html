@@ -245,7 +245,50 @@ function hideTip() { document.getElementById('tooltip').style.display = 'none'; 
 function render() { renderMetrics(); renderTable(); renderCharts(); }
 render();
 
-const NEWS_Q=['building+materials+industry','CRH+building+materials','Vulcan+Materials+aggregates','Martin+Marietta+materials','Heidelberg+Materials+cement','Cemex+cement'];const CO_KW=['CRH','Vulcan','Martin Marietta','Knife River','Eagle Materials','USLM','Granite Construction','Construction Partners','Sterling','Builders FirstSource','Heidelberg','Holcim','Cemex','Arcosa','Installed Building','Boise Cascade','Armstrong','building materials','aggregates','cement'];let allN=[],curF='all';async function fetchNews(){const f=document.getElementById('newsFeed');f.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Fetching headlines...</div>';allN=[];for(const q of NEWS_Q){try{const r=await fetch('https://api.rss2json.com/v1/api.json?rss_url=https://news.google.com/rss/search?q='+q+'+when:7d&hl=en-US&gl=US&ceid=US:en');if(r.ok){const d=await r.json();if(d.items)d.items.forEach(i=>{const ic=CO_KW.some(k=>i.title.toLowerCase().includes(k.toLowerCase()));allN.push({t:i.title.replace(/ - [^-]+$/,''),s:i.title.match(/ - ([^-]+)$/)?.[1]||'News',l:i.link,d:new Date(i.pubDate),y:ic?'company':'industry'})})}}catch(e){}}const seen=new Set();allN=allN.filter(i=>{const k=i.t.substring(0,50).toLowerCase();if(seen.has(k))return false;seen.add(k);return true}).sort((a,b)=>b.d-a.d);document.getElementById('newsTime').textContent='Last updated: '+new Date().toLocaleTimeString();renderN()}function renderN(){const f=document.getElementById('newsFeed');let items=curF==='all'?allN:allN.filter(n=>n.y===curF);if(!items.length){f.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">No headlines found.</div>';return}f.innerHTML=items.slice(0,25).map(i=>'<div class="news-item"><a href="'+i.l+'" target="_blank">'+i.t+'</a><div class="news-meta"><span class="source">'+i.s+'</span> &middot; '+tAgo(i.d)+' &middot; <span style="color:'+(i.y==='company'?'var(--gold)':'var(--muted)')+'">'+i.y+'</span></div></div>').join('')}function filterNews(ty){curF=ty;document.querySelectorAll('.news-tabs button').forEach(b=>b.classList.remove('active'));event.target.classList.add('active');renderN()}function tAgo(d){const m=Math.floor((Date.now()-d.getTime())/60000);return m<60?m+'m ago':m<1440?Math.floor(m/60)+'h ago':Math.floor(m/1440)+'d ago'}fetchNews();setInterval(fetchNews,3600000);
+const NEWS_FEEDS=['building+materials','CRH+plc+building','Vulcan+Materials+company','Martin+Marietta+materials','Cemex+cement','Heidelberg+Materials','Builders+FirstSource','aggregates+construction+industry'];
+const CO_KW=['CRH','Vulcan','Martin Marietta','Knife River','Eagle Materials','USLM','US Lime','Granite Construction','Construction Partners','Sterling Construction','Builders FirstSource','Heidelberg','Holcim','Cemex','Arcosa','Installed Building','Boise Cascade','Armstrong','AZEK','building materials','aggregates','cement','lime','concrete','quarry'];
+let allN=[],curF='all';
+async function fetchNews(){
+const f=document.getElementById('newsFeed');
+if(!f)return;
+f.innerHTML='<div style="text-align:center;padding:40px;color:#8899aa">Fetching latest headlines...</div>';
+allN=[];
+for(const q of NEWS_FEEDS){
+try{
+const r=await fetch('https://corsproxy.io/?https://news.google.com/rss/search?q='+q+'&hl=en-US&gl=US&ceid=US:en');
+if(r.ok){
+const txt=await r.text();
+const parser=new DOMParser();
+const doc=parser.parseFromString(txt,'text/xml');
+const items=doc.querySelectorAll('item');
+items.forEach(item=>{
+const title=item.querySelector('title')?.textContent||'';
+const link=item.querySelector('link')?.textContent||'';
+const pubDate=item.querySelector('pubDate')?.textContent||'';
+const source=item.querySelector('source')?.textContent||title.match(/ - ([^-]+)$/)?.[1]||'News';
+const cleanTitle=title.replace(/ - [^-]+$/,'');
+const isCompany=CO_KW.some(k=>cleanTitle.toLowerCase().includes(k.toLowerCase()));
+allN.push({t:cleanTitle,s:source,l:link,d:new Date(pubDate),y:isCompany?'company':'industry'});
+});
+}
+}catch(e){console.log('Feed error:',q,e)}
+}
+const seen=new Set();
+allN=allN.filter(i=>{const k=i.t.substring(0,50).toLowerCase();if(seen.has(k))return false;seen.add(k);return true}).sort((a,b)=>b.d-a.d);
+const ts=document.getElementById('newsTime');
+if(ts)ts.textContent='Last updated: '+new Date().toLocaleTimeString()+' ('+allN.length+' articles)';
+renderN();
+}
+function renderN(){
+const f=document.getElementById('newsFeed');
+if(!f)return;
+let items=curF==='all'?allN:allN.filter(n=>n.y===curF);
+if(!items.length){f.innerHTML='<div style="text-align:center;padding:40px;color:#8899aa">No headlines found. Try refreshing.</div>';return}
+f.innerHTML=items.slice(0,30).map(i=>'<div class="news-item"><a href="'+i.l+'" target="_blank" rel="noopener">'+i.t+'</a><div class="news-meta"><span class="source">'+i.s+'</span> &middot; '+tAgo(i.d)+' &middot; <span style="color:'+(i.y==='company'?'#4fc3f7':'#8899aa')+'">'+i.y+'</span></div></div>').join('')}
+function filterNews(ty){curF=ty;document.querySelectorAll('.news-tabs button').forEach(b=>b.classList.remove('active'));event.target.classList.add('active');renderN()}
+function tAgo(d){const m=Math.floor((Date.now()-d.getTime())/60000);if(m<1)return 'just now';if(m<60)return m+'m ago';if(m<1440)return Math.floor(m/60)+'h ago';return Math.floor(m/1440)+'d ago'}
+fetchNews();
+setInterval(fetchNews,3600000);
 </script>
 </body>
 </html>
